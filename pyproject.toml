@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cook-scheduler"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "ortools>=9.14,<10",
+    "pydantic>=2.11,<3",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
+    "sqlalchemy[asyncio]>=2.0,<2.1",
+    "aiosqlite>=0.20,<1",
+    "asyncpg>=0.29,<1",
+    "alembic>=1.13,<2",
+    "pydantic-settings>=2.5,<3",
+    "httpx>=0.27,<1",
+    "python-multipart>=0.0.20,<1",
+    "pillow>=11,<13",
+    "pyjwt>=2.15.1",
+    "pwdlib[argon2]>=0.3.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+include = ["cook_scheduler*", "service*"]

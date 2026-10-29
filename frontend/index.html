@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f6f0">
+  <meta name="description" content="开饭：把几道家常菜，安排得刚刚好。智能烹饪助手交互原型。">
+  <title>开饭 · 智能烹饪助手</title>
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/data.js"></script>
+  <script defer src="/execution.js"></script>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <aside class="studio">
+    <a class="wordmark" href="#recipes"><img src="/assets/mark.svg" alt="" width="44" height="44">开饭<span>KAIFAN</span></a>
+    <div class="studio-copy"><p class="eyebrow">THE EVERYDAY KITCHEN</p><h1>几道家常菜，<br>一顿刚刚好的饭。</h1><p>把时间和锅灶交给安排，<br>把心思留给好好做饭。</p></div>
+    <ol class="studio-flow"><li data-stage="recipes"><span>01</span><div>想吃什么<small>收藏菜谱，搭配今晚的菜单</small></div></li><li data-stage="plan"><span>02</span><div>安排妥当<small>照顾每一口锅和每一分钟</small></div></li><li data-stage="execute"><span>03</span><div>一起开饭<small>跟着步骤，把几道菜同时端上桌</small></div></li></ol>
+    <div class="studio-bottom"><span class="prototype-tag">交互原型 · v0.2</span><p>真实调度引擎 / 演示菜谱导入<br>数据保存在当前浏览器</p><a href="/project-plan" target="_blank" rel="noopener">查看项目规划 ↗</a></div>
+  </aside>
+  <div class="phone-wrap"><div class="phone">
+    <header class="phone-top"><span>开饭 <b>·</b> KITCHEN COMPANION</span><span id="connection" class="connection">连接中</span></header>
+    <main id="app" tabindex="-1"></main>
+    <nav id="navigation" class="bottom-nav" aria-label="主导航"></nav>
+  </div><p class="device-caption">为厨房设计，也为每一个认真吃饭的人。</p></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="help-dialog"><form method="dialog"><button class="icon-button dialog-close" aria-label="关闭">×</button></form><h2>关于这个原型</h2><p>菜谱、厨房配置和执行进度保存在当前浏览器。计划生成与重排会调用本机 Python 调度引擎。</p><p>图片、链接和文本导入仅演示流程，会载入固定菜谱；不会上传图片、抓取链接或调用 AI。</p><p>执行页面提供可快进的演示时钟。网页关闭后不发送系统通知；正式后台提醒将在 Flutter 中实现。</p><a href="/project-plan" target="_blank" rel="noopener">阅读项目规划 ↗</a></dialog>
+  <noscript>请开启 JavaScript 以使用交互原型。</noscript>
+</body>
+</html>

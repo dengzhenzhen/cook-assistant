@@ -1,0 +1,20 @@
+{
+  "dart.flutterSdkPath": ".tools/flutter",
+  "dart.env": {
+    "PUB_CACHE": "${workspaceFolder}/.tools/pub-cache",
+    "PUB_HOSTED_URL": "https://pub.dev",
+    "FLUTTER_STORAGE_BASE_URL": "https://storage.flutter-io.cn",
+    "JAVA_HOME": "${workspaceFolder}/.tools/jdk-root/usr/lib/jvm/java-17-openjdk-amd64",
+    "ANDROID_HOME": "${workspaceFolder}/.tools/android-sdk",
+    "CHROME_EXECUTABLE": "${workspaceFolder}/.tools/chrome/chrome"
+  },
+  "files.exclude": {
+    "**/.dart_tool": true,
+    "**/build": true
+  },
+  "search.exclude": {
+    ".tools": true,
+    ".venv": true,
+    "frontend/mobile/build": true
+  }
+}

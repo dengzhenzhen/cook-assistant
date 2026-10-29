@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "开饭 · Flutter Web",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/frontend/mobile",
+      "deviceId": "web-server",
+      "toolArgs": [
+        "--web-port",
+        "8080",
+        "--dart-define=API_BASE_URL=http://127.0.0.1:8000"
+      ]
+    },
+    {
+      "name": "开饭 · Android",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/frontend/mobile",
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=http://10.0.2.2:8000"
+      ]
+    }
+  ]
+}

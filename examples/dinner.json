@@ -1,0 +1,98 @@
+{
+  "capacities": {
+    "burner": 2,
+    "wok": 1,
+    "rice_cooker": 1,
+    "plate": 2
+  },
+  "cook_count": 1,
+  "target_finish_seconds": 2400,
+  "max_holding_seconds": {
+    "eggs": 180
+  },
+  "tasks": [
+    {
+      "id": "rice_wash",
+      "recipe_id": "rice",
+      "name": "洗米并启动电饭煲",
+      "duration_seconds": 120,
+      "notes": "按电饭煲刻度加水，合盖并确认煮饭程序已启动。"
+    },
+    {
+      "id": "rice_cook",
+      "recipe_id": "rice",
+      "name": "电饭煲煮饭",
+      "duration_seconds": 1800,
+      "dependencies": [
+        "rice_wash"
+      ],
+      "attention_type": "passive",
+      "resources": {
+        "rice_cooker": 1
+      },
+      "notes": "保持锅盖关闭，实际完成状态以电饭煲提示为准。"
+    },
+    {
+      "id": "tomato_cut",
+      "recipe_id": "eggs",
+      "name": "切番茄",
+      "duration_seconds": 180,
+      "notes": "番茄洗净去蒂切小块，保留切出的汁水。"
+    },
+    {
+      "id": "egg_beat",
+      "recipe_id": "eggs",
+      "name": "打散鸡蛋",
+      "duration_seconds": 60,
+      "notes": "加入少量盐，搅打约 30 秒至蛋液均匀。"
+    },
+    {
+      "id": "egg_fry",
+      "recipe_id": "eggs",
+      "name": "炒鸡蛋",
+      "duration_seconds": 120,
+      "dependencies": [
+        "egg_beat"
+      ],
+      "resources": {
+        "burner": 1
+      },
+      "notes": "中火倒入蛋液，等约 20 秒后轻推翻炒至刚凝固。"
+    },
+    {
+      "id": "tomato_fry",
+      "recipe_id": "eggs",
+      "name": "炒番茄并加入鸡蛋",
+      "duration_seconds": 180,
+      "dependencies": [
+        "tomato_cut",
+        "egg_fry"
+      ],
+      "resources": {
+        "burner": 1
+      },
+      "notes": "小火炒番茄约 90 秒，加入鸡蛋后转大火翻炒约 30 秒；放盐拌匀后关火。"
+    },
+    {
+      "id": "serve",
+      "recipe_id": "eggs",
+      "name": "装盘",
+      "duration_seconds": 30,
+      "dependencies": [
+        "tomato_fry"
+      ],
+      "notes": "关火后装盘，趁热食用。"
+    }
+  ],
+  "holds": [
+    {
+      "resource": "wok",
+      "start_task": "egg_fry",
+      "end_task": "serve"
+    },
+    {
+      "resource": "plate",
+      "start_task": "serve"
+    }
+  ]
+}

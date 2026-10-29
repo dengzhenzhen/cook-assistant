@@ -1,0 +1,33 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+
+# Project-local SDKs and runtime data
+.tools/
+.data/
+.env
+frontend/mobile/.dart_tool/
+frontend/mobile/build/
+frontend/mobile/android/local.properties
+frontend/mobile/ios/Flutter/ephemeral/
+frontend/mobile/ios/Pods/
+
+# Local Android build deliveries
+dist/*.apk
+dist/*.sha256
+
+# Machine configuration, secrets, and generated output
+.agents/
+.codex/
+.aws/
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+**/key.properties
+**/.gradle/
+.DS_Store
+/result.json

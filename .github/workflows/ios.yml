@@ -1,0 +1,75 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+    paths: ['frontend/mobile/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['frontend/mobile/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: '后端地址（留空使用仓库变量 API_BASE_URL 或本机默认地址）'
+        required: false
+        type: string
+      target:
+        description: '构建目标：免签名真机产物，或可在 Mac 模拟器运行的应用'
+        type: choice
+        options: [device-unsigned, simulator]
+        default: device-unsigned
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend/mobile
+    env:
+      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL || 'http://127.0.0.1:8000' }}
+      BUILD_TARGET: ${{ inputs.target || 'device-unsigned' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: '3.47.8'
+          channel: stable
+          cache: true
+      - name: Show Xcode toolchain
+        run: xcodebuild -version
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Build unsigned device application
+        if: env.BUILD_TARGET == 'device-unsigned'
+        run: flutter build ios --release --no-codesign --dart-define="API_BASE_URL=$API_BASE_URL"
+      - name: Build simulator application
+        if: env.BUILD_TARGET == 'simulator'
+        run: flutter build ios --simulator --debug --dart-define="API_BASE_URL=$API_BASE_URL"
+      - name: Package application and checksum
+        run: |
+          mkdir -p build/delivery
+          if [[ "$BUILD_TARGET" == 'simulator' ]]; then
+            APP_PATH=build/ios/iphonesimulator/Runner.app
+          else
+            APP_PATH=build/ios/iphoneos/Runner.app
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "build/delivery/kaifan-ios-$BUILD_TARGET.app.zip"
+          cd build/delivery
+          shasum -a 256 "kaifan-ios-$BUILD_TARGET.app.zip" > "kaifan-ios-$BUILD_TARGET.app.zip.sha256"
+      - name: Upload iOS application
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kaifan-ios-${{ env.BUILD_TARGET }}-${{ github.run_number }}
+          path: frontend/mobile/build/delivery/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
