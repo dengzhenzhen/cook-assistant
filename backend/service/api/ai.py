@@ -53,7 +53,9 @@ async def status(request:Request,db:DB,user:Owner):
 
 @router.post('/recipes/import/text',status_code=202)
 async def import_text(payload:TextImport,request:Request,db:DB,user:Owner):
-    return await enqueue(request,db,user,{'source':'text','text':payload.text.strip()})
+    text=payload.text.strip()
+    if not text: raise HTTPException(422,'请输入菜名或菜谱内容。')
+    return await enqueue(request,db,user,{'source':'text','text':text})
 
 
 @router.post('/recipes/import/image',status_code=202)

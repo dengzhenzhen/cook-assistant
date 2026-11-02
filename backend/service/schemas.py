@@ -76,4 +76,4 @@ class SavedPlanRequest(Model):
 
 
 class TextImport(Model):
-    text: str = Field(min_length=5, max_length=20000)
+    text: str = Field(min_length=1, max_length=20000)

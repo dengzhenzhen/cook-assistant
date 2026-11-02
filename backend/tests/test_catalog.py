@@ -110,6 +110,85 @@ def test_invalid_ai_structure_gets_only_one_repair_and_records_both_calls(client
     assert usage['input_tokens']==20 and usage['daily_used']==1
 
 
+def test_name_only_import_searches_then_parses_recipe(client,monkeypatch):
+    import json
+    calls=[]
+    async def fake_complete(settings,text,images=None):
+        calls.append(('complete',text))
+        if len(calls)==1:
+            return json.dumps({'name_only':True,'name':'番茄炒蛋'}),{'prompt_tokens':5,'completion_tokens':5}
+        value=recipe();value.pop('recipe_id');value['name']='番茄炒蛋'
+        return json.dumps(value),{'prompt_tokens':10,'completion_tokens':20}
+    async def fake_search(settings,name):
+        calls.append(('search',name))
+        return '番茄炒蛋：鸡蛋打散，番茄切块，炒熟。'
+    monkeypatch.setattr('service.imports.complete',fake_complete)
+    monkeypatch.setattr('service.imports.search_recipe',fake_search)
+    job=client.post('/api/v1/recipes/import/text',json={'text':'番茄炒蛋'}).json()
+    for _ in range(100):
+        result=client.get('/api/v1/import-jobs/'+job['job_id']).json()
+        if result['status'] in ('completed','failed'):break
+        time.sleep(.01)
+    assert result['status']=='completed',result
+    assert result['recipe']['name']=='番茄炒蛋'
+    assert [call[0] for call in calls]==['complete','search','complete']
+    assert '番茄炒蛋：鸡蛋打散' in calls[2][1]
+    assert client.get('/api/v1/ai/status').json()['input_tokens']==15
+
+
+def test_name_only_import_fails_without_search_results(client,monkeypatch):
+    from service.deepseek import AIError
+    calls=[]
+    async def fake_complete(settings,text,images=None):
+        calls.append(text)
+        return '{"name_only":true,"name":"不存在的菜"}',{'prompt_tokens':5}
+    async def fake_search(settings,name):
+        raise AIError('未搜索到这道菜的可用菜谱，请输入食材和做法后重试。')
+    monkeypatch.setattr('service.imports.complete',fake_complete)
+    monkeypatch.setattr('service.imports.search_recipe',fake_search)
+    job=client.post('/api/v1/recipes/import/text',json={'text':'不存在的菜'}).json()
+    for _ in range(100):
+        result=client.get('/api/v1/import-jobs/'+job['job_id']).json()
+        if result['status'] in ('completed','failed'):break
+        time.sleep(.01)
+    assert result['status']=='failed'
+    assert '未搜索到' in result['error']
+    assert len(calls)==1
+
+
+def test_text_import_accepts_short_dish_names_but_rejects_whitespace(client,monkeypatch):
+    from service.deepseek import AIError
+    async def fake_complete(settings,text,images=None):
+        return '{"name_only":true,"name":"米饭"}',{'prompt_tokens':1}
+    async def fake_search(settings,name):
+        raise AIError('未搜索到这道菜的可用菜谱，请输入食材和做法后重试。')
+    monkeypatch.setattr('service.imports.complete',fake_complete)
+    monkeypatch.setattr('service.imports.search_recipe',fake_search)
+    assert client.post('/api/v1/recipes/import/text',json={'text':'米饭'}).status_code==202
+    assert client.post('/api/v1/recipes/import/text',json={'text':'   '}).status_code==422
+
+
+def test_search_recipe_uses_deepseek_search_endpoint(monkeypatch):
+    import asyncio
+    import httpx
+    from pydantic import SecretStr
+    from types import SimpleNamespace
+    from service.deepseek import search_recipe
+    requests=[]
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200,json={'results':[{'title':'做法','url':'https://example.com/recipe',
+            'content':'食材：鸡蛋、番茄；步骤：切、炒。'}]})
+    original_client=httpx.AsyncClient
+    monkeypatch.setattr('service.deepseek.httpx.AsyncClient',
+        lambda **kwargs:original_client(transport=httpx.MockTransport(respond),**kwargs))
+    settings=SimpleNamespace(deepseek_api_key=SecretStr('test-key'),deepseek_base_url='https://api.deepseek.com')
+    material=asyncio.run(search_recipe(settings,'番茄炒蛋'))
+    assert requests[0].url.path=='/v1/tools/search'
+    assert requests[0].read().decode().find('"need_content":true')>=0
+    assert '食材：鸡蛋、番茄' in material
+
+
 def test_numeric_ingredient_quantity_is_preserved_as_text():
     import json
     from service.deepseek import parse_result

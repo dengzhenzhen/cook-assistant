@@ -110,8 +110,8 @@ class _ImportPageState extends ConsumerState<ImportPage> {
         }
         job = await api.importImages(files);
       } else {
-        if (text.text.trim().length < 5) {
-          showError(context, '请粘贴至少 5 个字符的菜谱内容。');
+        if (text.text.trim().length < 1) {
+          showError(context, '请粘贴菜谱内容或菜名。');
           return;
         }
         job = await api.importText(text.text.trim());
