@@ -1,0 +1,116 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { setAccount, selected, get } from '../src/lib/storage.js'
+import { queueEdit, pendingEdits, flushEdits } from '../src/lib/outbox.js'
+import { api, auth, ApiError, setBaseUrl } from '../src/lib/client.js'
+import { createSession, tick, completeTask, buildReplan, finished } from '../src/lib/session.js'
+import { cacheRecipes, cachedRecipes, overlayPending } from '../src/catalog-cache.js'
+
+const at = seconds => new Date(1700000000000 + seconds * 1000)
+function snapshot() {
+  return { origin: at(0).toISOString(), request: { target_finish_seconds: null, cook_count: 1,
+    capacities: { oven: 1 }, holds: [], tasks: [
+      { id: 'setup', recipe_id: 'r', name: 'setup', duration_seconds: 10, attention_type: 'active', resources: {}, dependencies: [] },
+      { id: 'bake', recipe_id: 'r', name: 'bake', duration_seconds: 20, attention_type: 'passive', resources: { oven: 1 }, dependencies: ['setup'] },
+    ] }, plan: { tasks: [{ task_id: 'setup', start_seconds: 0 }, { task_id: 'bake', start_seconds: 100 }] } }
+}
+test('session handoff, automatic appliance completion, and replan facts', () => {
+  const session = createSession(snapshot(), 's1', at(0))
+  assert.equal(tick(session, at(0)), true)
+  assert.equal(session.states.setup.status, 'running')
+  assert.equal(completeTask(session, 'setup', at(10)), true)
+  assert.equal(session.states.bake.status, 'running')
+  assert.equal(session.states.bake.started, 10)
+  assert.equal(tick(session, at(89)), false)
+  assert.equal(tick(session, at(90)), true)
+  assert.equal(finished(session), true)
+  assert.deepEqual(buildReplan(session, at(90)).execution.map(row => row.actual_end), [10, 90])
+})
+test('storage and selected recipes are scoped per account', () => {
+  setAccount('one'); selected.set(['r1']); assert.deepEqual(selected.get(), ['r1'])
+  setAccount('two'); assert.deepEqual(selected.get(), []); selected.toggle('r2')
+  setAccount('one'); assert.deepEqual(selected.get(), ['r1'])
+})
+test('concurrent 401 responses share one refresh and each replay once', async () => {
+  setBaseUrl('https://api.example.test')
+  const calls = []
+  globalThis.uni = { request({ url, header, success }) {
+    calls.push(url)
+    queueMicrotask(() => {
+      if (url.endsWith('/auth/login')) success({ statusCode: 200, data: { user_id: 'user', access_token: 'old', refresh_token: 'refresh' } })
+      else if (url.endsWith('/auth/refresh')) success({ statusCode: 200, data: { user_id: 'user', access_token: 'new', refresh_token: 'rotated' } })
+      else success(header.Authorization === 'Bearer new' ? { statusCode: 200, data: [] } : { statusCode: 401, data: { detail: 'expired' } })
+    })
+  } }
+  await api.login('a@example.com', 'password123')
+  await Promise.all([api.recipes(), api.recipes()])
+  assert.equal(calls.filter(url => url.endsWith('/auth/refresh')).length, 1)
+  assert.equal(calls.filter(url => url.endsWith('/recipes')).length, 4)
+  assert.equal(auth.value.access_token, 'new')
+  delete globalThis.uni
+})
+test('outbox keeps conflicts and preserves original base across local edits', async () => {
+  setAccount('outbox-user')
+  queueEdit('recipe', { recipe_id: 'r', name: 'original' }, { recipe_id: 'r', name: 'draft' })
+  queueEdit('recipe', { recipe_id: 'r', name: 'draft' }, { recipe_id: 'r', name: 'latest' })
+  assert.equal(pendingEdits().length, 1)
+  assert.equal(pendingEdits()[0].base.name, 'original')
+  assert.deepEqual(get('edit_outbox_index'), ['recipe:r'])
+  const original = api.syncEdit
+  api.syncEdit = async () => { throw new ApiError(409, 'cloud changed') }
+  try { await flushEdits(); assert.equal(pendingEdits()[0].status, 'conflict') }
+  finally { api.syncEdit = original }
+})
+test('session CAS conflict exposes server snapshot for resolution', async () => {
+  const previous = auth.value
+  auth.value = { user_id: 'cas-user', access_token: 'token', refresh_token: 'refresh' }
+  globalThis.uni = { request({ url, success }) {
+    queueMicrotask(() => success(url.endsWith('/sessions/s1')
+      ? { statusCode: 409, data: { detail: { message: '会话已在其他设备更新。', version: 2, document: { states: {} } } } }
+      : { statusCode: 200, data: {} }))
+  } }
+  try {
+    await assert.rejects(api.syncSession({ id: 's1', snapshot: snapshot(), states: {} }, 1, 'mutation'), error => {
+      assert.equal(error.conflict, true)
+      assert.equal(error.data.detail.version, 2)
+      return true
+    })
+  } finally { delete globalThis.uni; auth.value = previous }
+})
+test('image import uses the single-file upload shape supported by WeChat', async () => {
+  const previous = auth.value
+  auth.value = { user_id: 'image-user', access_token: 'token', refresh_token: 'refresh' }
+  let upload
+  globalThis.uni = { uploadFile(options) {
+    upload = options
+    options.success({ statusCode: 202, data: JSON.stringify({ job_id: 'job-1' }) })
+  } }
+  try {
+    assert.deepEqual(await api.importImage(['/tmp/recipe.png']), { job_id: 'job-1' })
+    assert.equal(upload.filePath, '/tmp/recipe.png')
+    assert.equal(upload.name, 'images')
+    assert.equal(upload.files, undefined)
+  } finally { delete globalThis.uni; auth.value = previous }
+})
+test('recipe cache stores entries separately and preserves pending edits', () => {
+  setAccount('catalog-user')
+  cacheRecipes([{ recipe_id: 'r1', name: '云端菜' }, { recipe_id: 'r2', name: '另一道菜' }])
+  assert.equal(get('recipes'), null)
+  assert.deepEqual(get('recipe_index'), ['r1', 'r2'])
+  assert.equal(cachedRecipes().length, 2)
+  const merged = overlayPending(cachedRecipes(), [{ kind: 'recipe', document: { recipe_id: 'r1', name: '本机菜' } }])
+  assert.equal(merged[0].name, '本机菜')
+  assert.equal(merged.length, 2)
+})
+test('late response from an old account is rejected', async () => {
+  const old = auth.value
+  auth.value = { user_id: 'old-user', access_token: 'old', refresh_token: 'old-refresh' }
+  let respond
+  globalThis.uni = { request({ success }) { respond = success } }
+  try {
+    const pending = api.recipes()
+    auth.value = { user_id: 'new-user', access_token: 'new', refresh_token: 'new-refresh' }
+    respond({ statusCode: 200, data: [{ recipe_id: 'private' }] })
+    await assert.rejects(pending, error => error.status === 401)
+  } finally { delete globalThis.uni; auth.value = old }
+})

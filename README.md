@@ -1,40 +1,42 @@
 # 开饭 · AI 智能烹饪助手
 
-包含 OR-Tools 调度引擎、SQLAlchemy 持久化服务、DeepSeek 文本/图片导入和 Flutter 客户端。原有 HTML 原型保留完整烹饪执行演示。
+包含 OR-Tools 调度引擎、SQLAlchemy 持久化服务、DeepSeek 文本/图片导入和 uni-app 客户端（H5 / 微信小程序）。旧版 Flutter 客户端与 HTML 原型保留供参考。
 
 ## 正式客户端开发
 
-前端环境已配置为项目本地 Flutter 3.47.8 / Dart 3.13.7、JDK 17 和 Android SDK 36，并配置了 VS Code Flutter/Dart 扩展。
+当前前端位于 `frontend/uniapp/`，采用 Vue 3 与 uni-app，支持 H5 和微信小程序构建。需要 Node.js 22.12+。
 
 先在根目录启动后端：
 
 ```bash
 uv sync --extra test
 .venv/bin/alembic -c backend/service/migrations/alembic.ini upgrade head
-.venv/bin/python -m service
+.venv/bin/python -m service --port 8002
 ```
 
-再在 `frontend/mobile` 目录启动 Flutter Web：
+再在 `frontend/uniapp` 目录安装依赖并启动 H5：
 
 ```bash
-../../scripts/flutter.sh run -d web-server --web-port 8080 \
-  --dart-define=API_BASE_URL=http://127.0.0.1:8000
+cd frontend/uniapp
+npm ci
+cp .env.example .env.local
+npm run dev:h5
 ```
 
-打开 http://localhost:8080 。当前提供登录、菜谱导入和编辑、厨房配置、计划生成、烹饪执行、离线同步与系统提醒。
+打开 http://localhost:8080 。若后端不是 8002，请调整 `frontend/uniapp/.env.local` 中的 `VITE_API_BASE_URL`。当前提供登录、菜谱导入和编辑、厨房配置、计划生成、烹饪执行和离线恢复；微信后台系统提醒需另外实现订阅消息。
 
-[Flutter 操作说明](frontend/mobile/README.md) · [本轮实施与环境](docs/IMPLEMENTATION.md) · [项目规划](docs/PROJECT_PLAN.md)
+[uni-app 操作与微信构建说明](frontend/uniapp/README.md) · [Flutter 旧版说明](frontend/mobile/README.md) · [本轮实施与环境](docs/IMPLEMENTATION.md)
 
-服务端密钥保存在忽略文件 `.env` 中，不能放入前端。默认使用 SQLite 本地持久化，支持邮箱密码注册、JWT 登录与刷新令牌轮换；客户端令牌使用系统安全存储。匿名开发账号默认关闭。
+服务端密钥保存在忽略文件 `.env` 中，不能放入前端。默认使用 SQLite 本地持久化，支持邮箱密码注册、JWT 登录与刷新令牌轮换；uni-app 客户端按账号隔离本地缓存。匿名开发账号默认关闭。
 
 ## GitHub 自动构建
 
-移动端代码推送到 `main` 或提交 PR 后，GitHub Actions 分别构建 Android 和 iOS，也可以在 Actions 页面点击 **Run workflow** 手动执行。
+`frontend/uniapp` 更新会触发 H5、微信小程序和 App 资源构建；手动运行可通过 HBuilderX runner 生成 Android APK 和 iOS IPA。Flutter 工作流已删除。
 
-- **Android APK**：静态检查、Flutter 测试、生成可安装的 Debug APK。
-- **iOS Build**：在 macOS 上生成未签名的真机应用；手动运行时也可选择模拟器应用。
+- **uni-app H5 / 微信小程序**：运行 Node 测试并编译两个目标；微信小程序产物需在微信开发者工具中导入，并配置 AppID 与 HTTPS 合法域名。
+- **原生 App**：手动签名云打包 Android APK / iOS IPA，配置方法见 [CI 文档](docs/CI.md)。
 
-在对应运行的 **Artifacts** 区域下载构建结果。iOS 真机安装和 TestFlight 发布需要另行配置 Apple 开发者证书与描述文件。后端服务需独立运行，详见 [CI 构建与下载说明](docs/CI.md)。
+在对应运行的 **Artifacts** 区域下载构建结果。后端服务需独立运行。
 
 ## 体验 HTML 原型
 
@@ -79,7 +81,8 @@ print(plan.model_dump_json(indent=2))
 │   ├── service/         # FastAPI、持久化、DeepSeek 导入与调度
 │   └── tests/           # 后端回归测试
 ├── frontend/
-│   ├── mobile/          # Flutter 正式客户端
+│   ├── uniapp/          # 当前 H5 / 微信小程序客户端
+│   ├── mobile/          # 旧版 Flutter 客户端
 │   └── index.html       # HTML 交互原型
 ├── scripts/             # 本地 SDK 包装和联调脚本
 ├── docs/                # 规划与实施记录

@@ -1,0 +1,29 @@
+{
+  "pages": [
+    { "path": "pages/recipes", "style": { "navigationBarTitleText": "菜谱" } },
+    { "path": "pages/plan", "style": { "navigationBarTitleText": "做饭" } },
+    { "path": "pages/mine", "style": { "navigationBarTitleText": "我的" } },
+    { "path": "pages/login", "style": { "navigationBarTitleText": "登录" } },
+    { "path": "pages/import", "style": { "navigationBarTitleText": "导入菜谱" } },
+    { "path": "pages/editor", "style": { "navigationBarTitleText": "编辑菜谱" } },
+    { "path": "pages/kitchen", "style": { "navigationBarTitleText": "我的厨房" } },
+    { "path": "pages/timeline", "style": { "navigationBarTitleText": "烹饪计划" } },
+    { "path": "pages/execute", "style": { "navigationBarTitleText": "正在烹饪" } }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "开饭",
+    "navigationBarBackgroundColor": "#f7f5ef",
+    "backgroundColor": "#f7f5ef"
+  },
+  "tabBar": {
+    "color": "#778274",
+    "selectedColor": "#c45230",
+    "backgroundColor": "#fffefa",
+    "list": [
+      { "pagePath": "pages/recipes", "text": "菜谱" },
+      { "pagePath": "pages/plan", "text": "做饭" },
+      { "pagePath": "pages/mine", "text": "我的" }
+    ]
+  }
+}

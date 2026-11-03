@@ -1,0 +1,112 @@
+name: uni-app builds
+
+on:
+  push:
+    branches: [main]
+    paths: ['frontend/uniapp/**', '.github/workflows/uniapp.yml']
+  pull_request:
+    paths: ['frontend/uniapp/**', '.github/workflows/uniapp.yml']
+  workflow_dispatch:
+    inputs:
+      native_target:
+        description: '签名 App 云打包（需要 HBuilderX runner 和 Secrets）'
+        type: choice
+        options: [none, android, ios, both]
+        default: none
+      api_base_url:
+        description: '后端 HTTPS 地址，留空使用 UNIAPP_API_BASE_URL'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uniapp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend/uniapp
+    env:
+      VITE_API_BASE_URL: ${{ inputs.api_base_url || vars.UNIAPP_API_BASE_URL || 'https://api.example.invalid' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/uniapp/package-lock.json
+      - run: npm ci
+      - name: Configure WeChat AppID
+        env:
+          WECHAT_APP_ID: ${{ vars.WECHAT_APP_ID }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs'
+          const path = 'src/manifest.json'
+          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'))
+          if (process.env.WECHAT_APP_ID) manifest['mp-weixin'].appid = process.env.WECHAT_APP_ID
+          fs.writeFileSync(path, JSON.stringify(manifest, null, 2))
+          JS
+      - run: npm test
+      - run: python3 tests/native-build.test.py
+      - run: npm run build:h5
+      - run: npm run build:mp-weixin
+      - run: npm run build:app
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kaifan-uniapp-${{ github.run_number }}
+          path: |
+            frontend/uniapp/dist/build/h5
+            frontend/uniapp/dist/build/mp-weixin
+            frontend/uniapp/dist/build/app
+          if-no-files-found: error
+          retention-days: 14
+
+  native:
+    name: Signed Android / iOS
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.native_target != 'none'
+    runs-on: [self-hosted, macOS, hbuilderx]
+    environment: uniapp-native
+    timeout-minutes: 60
+    concurrency:
+      group: uniapp-hbuilderx-native
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: frontend/uniapp
+    env:
+      VITE_API_BASE_URL: ${{ inputs.api_base_url || vars.UNIAPP_API_BASE_URL }}
+      HBUILDERX_CLI: ${{ vars.HBUILDERX_CLI || '/Applications/HBuilderX.app/Contents/MacOS/cli' }}
+      DCLOUD_APP_ID: ${{ vars.DCLOUD_APP_ID }}
+      NATIVE_TARGET: ${{ inputs.native_target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/uniapp/package-lock.json
+      - run: npm ci
+      - name: Build signed applications with HBuilderX
+        env:
+          NATIVE_PACK_CONFIG: ${{ secrets.NATIVE_PACK_CONFIG }}
+        run: python3 scripts/native-build.py
+      - name: Upload signed applications
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kaifan-native-${{ inputs.native_target }}-${{ github.run_number }}
+          path: frontend/uniapp/dist/native/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

@@ -1,0 +1,49 @@
+{
+  "name": "kaifan-uniapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:h5": "uni --port 8080",
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:h5": "uni build",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "test": "node --test tests/*.test.js",
+    "build:app": "uni build -p app"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-5030420261029002",
+    "@dcloudio/uni-app-plus": "3.0.0-5030420261029002",
+    "@dcloudio/uni-components": "3.0.0-5030420261029002",
+    "@dcloudio/uni-h5": "3.0.0-5030420261029002",
+    "@dcloudio/uni-mp-weixin": "3.0.0-5030420261029002",
+    "vue": "3.5.44",
+    "vue-i18n": "11.4.17"
+  },
+  "devDependencies": {
+    "@dcloudio/uni-cli-shared": "3.0.0-5030420261029002",
+    "@dcloudio/uni-stacktracey": "3.0.0-5030420261029002",
+    "@dcloudio/vite-plugin-uni": "3.0.0-5030420261029002",
+    "vite": "7.3.7"
+  },
+  "overrides": {
+    "adm-zip": "0.6.1",
+    "body-parser": "1.20.9",
+    "express": "4.22.1",
+    "jpeg-js": "0.4.4",
+    "path-to-regexp": "0.1.13",
+    "postcss": "8.5.32",
+    "postcss-selector-parser": "6.1.5",
+    "qs": "6.16.1",
+    "source-map-js": "1.2.2",
+    "ws": "8.21.0",
+    "phin": "3.7.1",
+    "@babel/core": "7.29.7",
+    "@intlify/core-base": "11.4.17",
+    "@intlify/message-resolver": "9.1.11",
+    "@vue/server-renderer": "3.5.44",
+    "esbuild": "0.28.2",
+    "vite": "$vite",
+    "vue": "$vue"
+  }
+}

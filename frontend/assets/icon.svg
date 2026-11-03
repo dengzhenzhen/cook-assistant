@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="厨序小程序图标">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff8e9"/><stop offset="1" stop-color="#ffe6bd"/></linearGradient>
+ <linearGradient id="pot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff9e16"/><stop offset="1" stop-color="#e94b12"/></linearGradient>
+<clipPath id="roundedCorners"><rect width="512" height="512" rx="108" ry="108"/></clipPath>
+</defs>
+<g clip-path="url(#roundedCorners)">
+<rect width="512" height="512" rx="108" fill="url(#bg)"/>
+<path d="M0 408 Q256 332 512 408 V512 H0Z" fill="#f47b19"/>
+<g fill="none" stroke="#f47b19" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
+<path d="M165 171 C129 151 137 103 178 98 C191 63 239 61 259 91 C283 55 337 75 337 116 C337 140 320 153 305 160"/>
+</g>
+<g transform="translate(78 166)">
+ <path d="M54 83 Q177 36 301 83 L287 226 Q282 253 251 253 H102 Q72 253 67 226Z" fill="url(#pot)"/>
+ <path d="M44 82 Q177 34 310 82" fill="none" stroke="#e95d0b" stroke-width="19" stroke-linecap="round"/>
+ <path d="M161 38 H193" stroke="#e95d0b" stroke-width="16" stroke-linecap="round"/>
+ <path d="M62 126 H34 M293 126 H320" stroke="#e95d0b" stroke-width="18" stroke-linecap="round"/>
+ <circle cx="177" cy="169" r="48" fill="none" stroke="white" stroke-width="12"/>
+ <path d="M177 138 V169 L200 154" fill="none" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g fill="none" stroke="#f28b1d" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" transform="translate(350 153)">
+ <rect x="0" y="0" width="103" height="148" rx="20" fill="#fff1d6" stroke="none"/>
+ <path d="M17 38 L29 50 L47 28 M60 39 H84 M17 85 L29 97 L47 75 M60 86 H84 M17 130 L29 142 L47 120 M60 131 H84" stroke-width="8"/>
+</g>
+<text x="256" y="471" font-size="62" font-weight="700" text-anchor="middle" fill="#fff" font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">厨序</text>
+</g>
+</svg>
