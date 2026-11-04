@@ -33,7 +33,7 @@ async function start() {
     <template v-else>
       <text class="subtitle">共 {{ rows.length }} 步。按时间线执行，设备自动步骤会继续计时。</text>
       <view v-for="row in rows" :key="row.task_id" class="card">
-        <view class="row"><text class="time">{{ formatSeconds(row.start_seconds) }}</text><text class="muted">{{ snapshot.recipes?.[templates[row.task_id]?.recipe_id] || '' }}</text></view>
+        <view class="row"><text class="muted">{{ snapshot.recipes?.[templates[row.task_id]?.recipe_id] || '' }}</text></view>
         <text class="step">{{ templates[row.task_id]?.name || row.name }}</text>
         <text v-if="templates[row.task_id]?.notes" class="muted">{{ templates[row.task_id].notes }}</text>
         <text class="muted">预计 {{ formatSeconds((row.end_seconds || 0) - row.start_seconds) }}</text>
@@ -44,6 +44,5 @@ async function start() {
 </template>
 
 <style scoped>
-.time { color: #c45230; font-weight: 700; }
 .step { display: block; font-size: 31rpx; font-weight: 650; margin: 12rpx 0; }
 </style>

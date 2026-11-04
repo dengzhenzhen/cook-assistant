@@ -33,12 +33,15 @@ export async function flushEdits() {
   const attempted = new Set()
   while (true) {
     const rows = pendingEdits()
-    const edit = rows.find(row => row.status !== 'conflict' && !attempted.has(row.kind + ':' + (row.document.recipe_id || row.document.kitchen_id)))
+    const edit = rows.find(row => (row.kind === 'kitchen' || row.status !== 'conflict') && !attempted.has(row.kind + ':' + (row.document.recipe_id || row.document.kitchen_id)))
     if (!edit) break
     const key = edit.kind + ':' + (edit.document.recipe_id || edit.document.kitchen_id)
     attempted.add(key)
     try {
-      const result = await api.syncEdit({ kind: edit.kind, base: edit.base, document: edit.document })
+      // Kitchen settings intentionally use the local document as the final value.
+      const result = edit.kind === 'kitchen'
+        ? { document: await api.saveKitchen(edit.document) }
+        : await api.syncEdit({ kind: edit.kind, base: edit.base, document: edit.document })
       const latest = pendingEdits()
       const index = latest.findIndex(row => row.kind + ':' + (row.document.recipe_id || row.document.kitchen_id) === key)
       if (index >= 0) {

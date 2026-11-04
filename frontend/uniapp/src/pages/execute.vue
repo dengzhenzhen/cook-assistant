@@ -93,11 +93,11 @@ async function start(id) {
   if (!session.value || !startTask(session.value, id, new Date(), false)) return
   save(); await sync(); await replan()
 }
-async function complete(task) {
+async function complete(task, direct = false) {
   const state = session.value?.states?.[task.id]
   if (!state) return
   const due = state.started + task.duration_seconds
-  if (elapsed(session.value) < due) {
+  if (!direct && elapsed(session.value) < due) {
     const answer = await uni.showModal({ title: '提前完成', content: '预计时间还没到。确认食物已经完成并继续？' })
     if (!answer.confirm) return
   }
@@ -182,7 +182,7 @@ function recipeName(task) { return session.value?.snapshot?.recipes?.[task.recip
           <text v-if="task.notes" class="subtitle">{{ task.notes }}</text>
           <text class="timer">{{ remaining(task) }}</text>
           <text class="muted">{{ automatic(session, task) ? '设备自动运行，结束后 60 秒自动确认' : '请完成操作后手动确认' }}</text>
-          <button class="primary" @click="complete(task)">确认完成</button>
+          <button class="primary" @click="complete(task)" @longpress="complete(task, true)">确认完成（长按直接完成）</button>
         </view>
         <view v-if="!running.length" class="card muted">当前没有运行中的步骤。</view>
         <text class="section">接下来</text>

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { setAccount, selected, get } from '../src/lib/storage.js'
+import { setAccount, selected, get, set, getGlobal } from '../src/lib/storage.js'
 import { queueEdit, pendingEdits, flushEdits } from '../src/lib/outbox.js'
 import { api, auth, ApiError, setBaseUrl } from '../src/lib/client.js'
 import { createSession, tick, completeTask, buildReplan, finished } from '../src/lib/session.js'
@@ -113,4 +113,58 @@ test('late response from an old account is rejected', async () => {
     respond({ statusCode: 200, data: [{ recipe_id: 'private' }] })
     await assert.rejects(pending, error => error.status === 401)
   } finally { delete globalThis.uni; auth.value = old }
+})
+
+test('WeChat missing storage keys use defaults and first save can sync', async () => {
+  const values = new Map()
+  const previousAccount = auth.value?.user_id
+  const originalSync = api.syncEdit
+  globalThis.uni = {
+    getStorageSync: key => values.has(key) ? structuredClone(values.get(key)) : '',
+    setStorageSync: (key, value) => values.set(key, structuredClone(value)),
+    removeStorageSync: key => values.delete(key),
+  }
+  setAccount('wechat-first-save')
+  api.syncEdit = async edit => ({ document: edit.document })
+  try {
+    assert.equal(get('missing'), null)
+    assert.equal(getGlobal('missing', 'fallback'), 'fallback')
+    assert.deepEqual(selected.get(), [])
+    assert.deepEqual(pendingEdits(), [])
+    assert.deepEqual(cachedRecipes(), [])
+    const recipe = { recipe_id: 'first', name: '番茄炒蛋' }
+    queueEdit('recipe', null, recipe)
+    assert.equal(pendingEdits()[0].document.name, recipe.name)
+    await flushEdits()
+    assert.deepEqual(pendingEdits(), [])
+    set('false', false); set('zero', 0)
+    assert.equal(get('false', true), false)
+    assert.equal(get('zero', 1), 0)
+    // Existing legacy queues remain readable after normalization.
+    set('edit_outbox_index', null)
+    set('edit_outbox', [{ kind: 'recipe', base: null, document: recipe }])
+    assert.equal(pendingEdits().length, 1)
+  } finally {
+    api.syncEdit = originalSync
+    delete globalThis.uni
+    setAccount(previousAccount)
+  }
+})
+
+test('kitchen sync overwrites cloud settings with local edits including old conflicts', async () => {
+  setAccount('kitchen-local-wins')
+  const local = { kitchen_id: 'k', cook_count: 2, capacities: { burner: 3 } }
+  queueEdit('kitchen', { ...local, cook_count: 1 }, local)
+  const key = 'edit_outbox:kitchen:k'
+  set(key, { ...get(key), status: 'conflict' })
+  const originalSave = api.saveKitchen
+  const originalSync = api.syncEdit
+  const calls = []
+  api.saveKitchen = async document => { calls.push(document); return document }
+  api.syncEdit = async () => { throw new Error('Kitchen must not use conflict-based sync') }
+  try {
+    await flushEdits()
+    assert.deepEqual(calls, [local])
+    assert.deepEqual(pendingEdits(), [])
+  } finally { api.saveKitchen = originalSave; api.syncEdit = originalSync }
 })

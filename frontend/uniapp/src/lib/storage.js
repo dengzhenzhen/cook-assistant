@@ -4,7 +4,11 @@ let account = null
 const memory = new Map()
 
 function read(key) {
-  if (typeof uni !== 'undefined' && uni.getStorageSync) return uni.getStorageSync(key)
+  if (typeof uni !== 'undefined' && uni.getStorageSync) {
+    const value = uni.getStorageSync(key)
+    // WeChat returns an empty string for a missing key, unlike Map.get().
+    return value === '' ? undefined : value
+  }
   return memory.get(key)
 }
 function write(key, value) {

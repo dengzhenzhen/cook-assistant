@@ -33,10 +33,6 @@ async function save() {
     queueEdit('kitchen', base.value, JSON.parse(JSON.stringify(kitchen.value)))
     storage.set('kitchen', kitchen.value)
     try { await flushEdits() } catch (e) { toast(`已保存到本机，联网后再同步：${errorText(e)}`) }
-    if (pendingEdits().some(row => row.kind === 'kitchen' && row.status === 'conflict')) {
-      error.value = '云端厨房配置已改变，本机修改已保留。请在“我的”处理冲突。'
-      return
-    }
     toast(pendingEdits().some(row => row.kind === 'kitchen') ? '厨房已保存到本机，等待同步' : '厨房已保存')
     uni.navigateBack()
   } catch (e) { error.value = errorText(e) }

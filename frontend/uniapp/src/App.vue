@@ -12,7 +12,8 @@ button::after { border: none; }
 .card { display: block; background: #fffefa; border: 1rpx solid #e4e4d8; border-radius: 24rpx; padding: 26rpx; margin: 20rpx 0; }
 .field { display: block; margin: 22rpx 0; font-size: 25rpx; }
 .input, .textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 10rpx; background: #fffefa; border: 1rpx solid #d9ddcf; border-radius: 14rpx; padding: 20rpx; font-size: 28rpx; }
-.textarea { min-height: 180rpx; }
+.input { height: 96rpx; min-height: 96rpx; padding: 0 20rpx; line-height: 1.5; }
+.textarea { height: 240rpx; min-height: 240rpx; line-height: 1.6; }
 .primary { background: #c45230; color: white; margin-top: 24rpx; }
 .secondary { background: #e8eee3; color: #34573b; margin-top: 18rpx; }
 .danger { color: #b33927; }

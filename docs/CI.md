@@ -4,7 +4,7 @@
 
 ## 自动检查与资源产物
 
-修改 `frontend/uniapp/**` 或工作流后，main push、PR 自动运行：
+修改 `frontend/uniapp/**` 或工作流后，main push、PR 自动运行；推送 `v*` tag 也会构建对应版本：
 
 - `npm ci`、`npm test`、原生打包脚本的模拟测试
 - H5、微信小程序、App 资源构建

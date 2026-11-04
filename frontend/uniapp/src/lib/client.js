@@ -15,7 +15,7 @@ const saved = getGlobal('auth')
 export const auth = { value: saved || null }
 setAccount(saved?.user_id)
 let refreshPromise = null
-let baseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) || getGlobal('server', '') || ''
+let baseUrl = (typeof __KAIFAN_API_BASE_URL__ !== 'undefined' ? __KAIFAN_API_BASE_URL__ : '') || getGlobal('server', '') || ''
 export function setBaseUrl(url) { baseUrl = String(url).replace(/\/$/, ''); setGlobal('server', baseUrl) }
 export function getBaseUrl() { return baseUrl }
 

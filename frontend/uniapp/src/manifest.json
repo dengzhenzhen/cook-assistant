@@ -2,14 +2,18 @@
   "name": "开饭",
   "appid": "__UNI__KAIFAN",
   "description": "智能烹饪助手",
-  "versionName": "0.1.0",
-  "versionCode": "100",
+  "versionName": "0.1.1",
+  "versionCode": "101",
   "transformPx": false,
   "mp-weixin": {
     "appid": "",
-    "setting": { "urlCheck": true },
+    "setting": {
+      "urlCheck": true
+    },
     "usingComponents": true
   },
-  "uniStatistics": { "enable": false },
+  "uniStatistics": {
+    "enable": false
+  },
   "vueVersion": "3"
 }
