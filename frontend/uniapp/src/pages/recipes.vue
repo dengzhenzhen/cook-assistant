@@ -53,6 +53,7 @@ function edit(recipe) { go('editor', `?id=${encodeURIComponent(recipe.recipe_id)
   <view class="page">
     <text class="title">今天想吃什么？</text>
     <text class="subtitle">收藏菜谱，挑几道菜，一起安排开饭。</text>
+    <button class="primary" @click="go('discover')">今天吃什么？帮我推荐一桌菜</button>
     <view class="actions"><button class="secondary" @click="go('import')">导入菜谱</button><button class="secondary" @click="go('editor')">手动创建</button></view>
     <view><text v-for="item in [['all','全部'],['favorite','收藏'],['selected','今晚想做']]" :key="item[0]" class="chip" :class="{ active: filter === item[0] }" @click="filter = item[0]">{{ item[1] }}</text></view>
     <text v-if="error" class="error">{{ error }}（已显示本地缓存）</text>

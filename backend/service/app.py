@@ -10,7 +10,7 @@ from .lifecycle import lifespan
 from .config import get_settings
 from .api import catalog, ai
 from . import auth
-from .api import sessions, offline
+from .api import sessions, offline, recommendations
 
 from cook_scheduler import Plan, Request, SchedulingError, generate_plan
 
@@ -23,6 +23,7 @@ app.include_router(ai.router)
 app.include_router(auth.router)
 app.include_router(sessions.router)
 app.include_router(offline.router)
+app.include_router(recommendations.router)
 solvers = BoundedSemaphore(2)
 
 

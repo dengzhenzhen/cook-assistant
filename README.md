@@ -37,6 +37,12 @@ npm run dev:h5
 
 [本轮实施与默认决策](docs/IMPLEMENTATION_DECISIONS.md) · [食材编辑界面](docs/structured-ingredients-preview.png) · [本餐换算界面](docs/portion-scaling-preview.png)
 
+## 今天吃什么
+
+菜谱页的“今天吃什么”提供 10分钟快手菜、普通一顿、吃顿好的三种倾向，默认分别为 1/2/3 道、10/30/60 分钟，可自行调整人数、菜数和工作量。推荐先调用 DeepSeek 返回可编辑菜名列表，不直接生成完整菜谱；换一批会排除当前菜名。已确认且唯一匹配的库中菜谱可加入计划，其余可导入后确认。
+
+需要配置已有 `COOK_DEEPSEEK_API_KEY`，推荐与导入共用现有 API 配额。估时是菜单建议，实际时间以完整步骤和厨房排程为准。接口：`POST /api/v1/recommendations/menu`。截图：[快手模式](docs/meal-menu-quick-preview.png)、[丰盛模式](docs/meal-menu-feast-preview.png)。
+
 ## GitHub 自动构建
 
 `frontend/uniapp` 更新会触发 H5、微信小程序和 App 资源构建；手动运行可通过 HBuilderX runner 生成 Android APK 和 iOS IPA。Flutter 工作流已删除。

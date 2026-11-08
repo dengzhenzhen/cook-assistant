@@ -95,6 +95,7 @@ export const api = {
   kitchen: () => request('/api/v1/kitchens/default'),
   saveKitchen: (kitchen) => request(`/api/v1/kitchens/${encode(kitchen.kitchen_id)}`, { method: 'PUT', data: kitchen }),
   aiStatus: () => request('/api/v1/ai/status'),
+  recommendMenu: (conditions) => request('/api/v1/recommendations/menu', { method: 'POST', data: conditions }),
   importText: (text) => request('/api/v1/recipes/import/text', { method: 'POST', data: { text } }),
   importJob: (id) => request(`/api/v1/import-jobs/${encode(id)}`),
   async importImage(filePaths) {
