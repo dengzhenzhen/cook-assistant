@@ -4,6 +4,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { storage } from '../lib/storage.js'
 import { createSession } from '../lib/session.js'
 import { uid, formatSeconds, go, toast } from '../utils.js'
+import MealIngredients from '../components/MealIngredients.vue'
 
 const snapshot = ref(null)
 const rows = computed(() => (snapshot.value?.plan?.tasks || []).slice().sort((a, b) => a.start_seconds - b.start_seconds))
@@ -32,6 +33,7 @@ async function start() {
     <view v-if="!snapshot" class="card muted">还没有保存的计划，请先生成烹饪计划。</view>
     <template v-else>
       <text class="subtitle">共 {{ rows.length }} 步。按时间线执行，设备自动步骤会继续计时。</text>
+      <MealIngredients :snapshots="snapshot.recipe_snapshots" />
       <view v-for="row in rows" :key="row.task_id" class="card">
         <view class="row"><text class="muted">{{ snapshot.recipes?.[templates[row.task_id]?.recipe_id] || '' }}</text></view>
         <text class="step">{{ templates[row.task_id]?.name || row.name }}</text>

@@ -28,8 +28,17 @@ async def edit(payload: Edit, db: DB, user: Owner):
     key = document[id_field]
     row = await db.scalar(select(model).where(model.id == key).with_for_update())
     if row is not None and row.user_id != user: raise HTTPException(404, '记录不存在。')
-    if row is not None and row.document == document: return {'document': document}
-    if (row.document if row else None) != payload.base:
+    # Compare canonical models so new optional defaults do not create false
+    # conflicts for pre-upgrade documents or an old pending offline edit.
+    def canonical(value):
+        return schema.model_validate(value).model_dump() if value is not None else None
+    try:
+        current = canonical(row.document) if row else None
+        base = canonical(payload.base)
+    except ValueError:
+        raise HTTPException(422, '离线编辑基准数据无效。')
+    if row is not None and current == document: return {'document': document}
+    if current != base:
         raise HTTPException(409, '云端内容已改变，本地编辑已保留，请解决冲突。')
     if row:
         # Conditional update also protects SQLite, where FOR UPDATE is ignored.

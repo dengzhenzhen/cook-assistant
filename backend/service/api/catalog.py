@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from cook_scheduler import Request, generate_plan, SchedulingError
 from ..database import get_db, RecipeRow, KitchenRow
-from ..schemas import Recipe, Kitchen, SavedPlanRequest
+from ..schemas import Recipe, Kitchen, SavedPlanRequest, ScaleRequest
+from ..scaling import scale_recipe
 
 router=APIRouter(prefix='/api/v1')
 DB=Annotated[AsyncSession,Depends(get_db)]
@@ -65,6 +66,12 @@ async def delete_recipe(recipe_id:str,db:DB,user:Owner):
     await db.delete(await owned(db,RecipeRow,recipe_id,user));await db.commit()
 
 
+@router.post('/recipes/{recipe_id}/scale')
+async def scale(recipe_id: str, payload: ScaleRequest, db: DB, user: Owner):
+    recipe = Recipe.model_validate((await owned(db, RecipeRow, recipe_id, user)).document)
+    return scale_recipe(recipe, payload.target_servings)
+
+
 @router.get('/kitchens/default',response_model=Kitchen)
 async def default_kitchen(db:DB,user:Owner):
     row=await db.scalar(select(KitchenRow).where(KitchenRow.user_id==user))
@@ -101,4 +108,5 @@ async def from_recipes(payload:SavedPlanRequest,db:DB,user:Owner):
     try: plan=await run_in_threadpool(generate_plan,request,time_limit_seconds=3)
     except SchedulingError as exc: raise HTTPException(409,str(exc)) from exc
     return {'origin':now.isoformat(),'request':request.model_dump(),'plan':plan.model_dump(),
-            'recipes':{r.recipe_id:r.name for r in recipes}}
+            'recipes':{r.recipe_id:r.name for r in recipes},
+            'recipe_snapshots': {r.recipe_id: scale_recipe(r, payload.servings_by_recipe.get(r.recipe_id, r.servings)) for r in recipes}}

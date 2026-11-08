@@ -29,6 +29,14 @@ npm run dev:h5
 
 服务端密钥保存在忽略文件 `.env` 中，不能放入前端。默认使用 SQLite 本地持久化，支持邮箱密码注册、JWT 登录与刷新令牌轮换；uni-app 客户端按账号隔离本地缓存。匿名开发账号默认关闭。
 
+## 食材结构化与份量换算
+
+在菜谱编辑页逐项填写食材原用量、单位与换算规则。在做饭页设置每道菜本餐份数，点击“预览本餐食材用量”。支持线性、指数、固定＋变量、固定、手动与分段曲线；默认调味/油量曲线只是可调整的参考。水量、火力、时长和锅具容量需按实际配方核对。换算不会覆盖原菜谱，计划与执行会话保存独立食材快照。
+
+旧菜谱无需手动迁移，明确的数值、分数与区间会自动解析；“适量”和无法可靠解析的数量保留原文，不猜测密度或容器规格。后端预览接口为 `POST /api/v1/recipes/{id}/scale`，请求 `{"target_servings":4}`；原计划接口可选传 `servings_by_recipe`。
+
+[本轮实施与默认决策](docs/IMPLEMENTATION_DECISIONS.md) · [食材编辑界面](docs/structured-ingredients-preview.png) · [本餐换算界面](docs/portion-scaling-preview.png)
+
 ## GitHub 自动构建
 
 `frontend/uniapp` 更新会触发 H5、微信小程序和 App 资源构建；手动运行可通过 HBuilderX runner 生成 Android APK 和 iOS IPA。Flutter 工作流已删除。
