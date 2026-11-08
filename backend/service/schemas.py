@@ -128,11 +128,18 @@ class Kitchen(Model):
         return self
 
 
+class MealPreferences(Model):
+    mode: Literal['quick', 'everyday', 'feast'] = 'everyday'
+    time_minutes: int = Field(default=30, ge=1, le=240)
+    effort: Literal['low', 'medium', 'high'] = 'medium'
+
+
 class SavedPlanRequest(Model):
     recipe_ids: list[str] = Field(min_length=1, max_length=10)
     kitchen_id: str
     target_finish_time: datetime | None = None
     servings_by_recipe: dict[str, Annotated[int, Field(strict=True, ge=1, le=20)]] = Field(default_factory=dict, max_length=10)
+    meal_preferences: MealPreferences | None = None
 
     @model_validator(mode='after')
     def portion_selection(self):

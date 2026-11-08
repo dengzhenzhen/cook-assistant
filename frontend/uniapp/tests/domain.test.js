@@ -168,3 +168,21 @@ test('kitchen sync overwrites cloud settings with local edits including old conf
     assert.deepEqual(pendingEdits(), [])
   } finally { api.saveKitchen = originalSave; api.syncEdit = originalSync }
 })
+
+test('menu resolve and plan requests preserve edited names, portions, and menu constraints', async () => {
+  const previous = auth.value
+  auth.value = { user_id: 'menu-contract', access_token: 'token' }
+  const calls = []
+  globalThis.uni = { request(options) {
+    calls.push({ url: options.url, data: options.data })
+    options.success({ statusCode: 200, data: {} })
+  } }
+  try {
+    await api.resolveMenu({ names: ['番茄炒蛋'], selected_recipe_ids: { 番茄炒蛋: 'r' } })
+    await api.plan(['r'], 'k', null, { r: 4 }, { mode: 'quick', time_minutes: 10, effort: 'low' })
+    assert.ok(calls[0].url.endsWith('/recommendations/resolve'))
+    assert.deepEqual(calls[0].data.names, ['番茄炒蛋'])
+    assert.deepEqual(calls[1].data.servings_by_recipe, { r: 4 })
+    assert.deepEqual(calls[1].data.meal_preferences, { mode: 'quick', time_minutes: 10, effort: 'low' })
+  } finally { auth.value = previous; delete globalThis.uni }
+})

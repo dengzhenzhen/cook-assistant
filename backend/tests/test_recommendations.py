@@ -143,3 +143,139 @@ def test_unconfigured_api_never_claims_recommendation(client, monkeypatch):
     result = client.post('/api/v1/recommendations/menu', json={'mode': 'quick'})
     assert result.status_code == 503
     assert result.json()['detail'] == '尚未配置 DeepSeek API。'
+
+
+def saved_recipe(recipe_id, name, confirmed=True):
+    return {'recipe_id': recipe_id, 'name': name, 'confirmed': confirmed,
+            'tasks': [{'id': recipe_id + '-task', 'recipe_id': recipe_id,
+                       'name': '煮熟', 'duration_seconds': 60}]}
+
+
+def test_ingredients_are_sent_and_bounded(client, monkeypatch):
+    requests = mock_deepseek(monkeypatch, [dish('番茄炒蛋')])
+    response = client.post('/api/v1/recommendations/menu', json={
+        'mode': 'quick', 'ingredients': [' 番茄 ', '鸡蛋']})
+    assert response.status_code == 200, response.text
+    brief = json.loads(json.loads(requests[0].read())['messages'][1]['content'])
+    assert brief['ingredients'] == ['番茄', '鸡蛋']
+    assert client.post('/api/v1/recommendations/menu', json={
+        'mode': 'quick', 'ingredients': ['x' * 41]}).status_code == 422
+    assert client.post('/api/v1/recommendations/menu', json={
+        'mode': 'quick', 'ingredients': ['x'] * 31}).status_code == 422
+
+
+def test_resolve_reuses_owned_recipes_and_requires_choice(client, monkeypatch):
+    for recipe_id, name, confirmed in [('one', '番茄炒蛋', True),
+                                       ('two', '鱼香肉丝', True),
+                                       ('three', '鱼香肉丝', False),
+                                       ('four', '蒸南瓜', False)]:
+        assert client.post('/api/v1/recipes', json=saved_recipe(recipe_id, name, confirmed)).status_code == 201
+    monkeypatch.setattr(app.state.import_worker.queue, 'put_nowait',
+                        lambda _: pytest.fail('local matches must not import'))
+    result = client.post('/api/v1/recommendations/resolve', json={
+        'names': ['番茄炒蛋', '鱼香肉丝', '蒸南瓜']})
+    assert result.status_code == 200, result.text
+    items = result.json()['items']
+    assert items[0] == {'name': '番茄炒蛋', 'status': 'matched', 'recipe_id': 'one'}
+    assert items[1]['status'] == 'needs_choice'
+    assert {item['recipe_id'] for item in items[1]['candidates']} == {'two', 'three'}
+    assert items[2] == {'name': '蒸南瓜', 'status': 'needs_review', 'recipe_id': 'four'}
+    choice = client.post('/api/v1/recommendations/resolve', json={
+        'names': ['鱼香肉丝'], 'selected_recipe_ids': {'鱼香肉丝': 'three'}})
+    assert choice.json()['items'][0]['status'] == 'needs_review'
+    assert choice.json()['items'][0]['recipe_id'] == 'three'
+    assert client.get('/api/v1/ai/status').json()['daily_used'] == 0
+
+
+def test_resolve_normalization_and_foreign_selection_is_failure(client, monkeypatch):
+    import asyncio
+    from service.database import User
+    async def seed():
+        async with app.state.sessions() as db:
+            db.add(User(id='foreign-user', name='Foreign'))
+            await db.flush()
+            db.add(RecipeRow(id='foreign-recipe', user_id='foreign-user',
+                             document={'name': '番茄炒蛋', 'confirmed': True}))
+            await db.commit()
+    asyncio.run(seed())
+    assert client.post('/api/v1/recipes', json=saved_recipe('mine', 'ＡＢＣ  菜')).status_code == 201
+    monkeypatch.setattr(app.state.import_worker.queue, 'put_nowait',
+                        lambda _: pytest.fail('invalid selection must not import'))
+    result = client.post('/api/v1/recommendations/resolve', json={
+        'names': ['ABC 菜'], 'selected_recipe_ids': {'ABC 菜': 'mine'}})
+    assert result.json()['items'][0]['status'] == 'matched'
+    denied = client.post('/api/v1/recommendations/resolve', json={
+        'names': ['番茄炒蛋'], 'selected_recipe_ids': {'番茄炒蛋': 'foreign-recipe'}})
+    assert denied.json()['items'][0]['status'] == 'failed'
+    assert client.get('/api/v1/ai/status').json()['daily_used'] == 0
+
+
+def test_resolve_import_cache_and_completed_draft(client, monkeypatch):
+    import asyncio
+    ids = []
+    monkeypatch.setattr(app.state.import_worker.queue, 'put_nowait', ids.append)
+    payload = {'names': ['番茄炒蛋']}
+    first = client.post('/api/v1/recommendations/resolve', json=payload)
+    assert first.status_code == 200, first.text
+    item = first.json()['items'][0]
+    assert item['status'] == 'import_pending'
+    assert ids == [item['job_id']]
+    again = client.post('/api/v1/recommendations/resolve', json=payload).json()['items'][0]
+    assert again['job_id'] == item['job_id']
+    assert ids == [item['job_id']]
+    assert client.get('/api/v1/ai/status').json()['daily_used'] == 1
+    async def complete():
+        async with app.state.sessions() as db:
+            job = await db.get(ImportJob, item['job_id'])
+            job.status = 'completed'
+            job.result = saved_recipe('draft-id', '番茄炒蛋', False)
+            job.payload = {'parser_version': 2}
+            await db.commit()
+    asyncio.run(complete())
+    completed = client.post('/api/v1/recommendations/resolve', json=payload).json()['items'][0]
+    assert completed['status'] == 'import_pending'
+    assert completed['job_id'] == item['job_id']
+    job = client.get('/api/v1/import-jobs/' + item['job_id']).json()
+    assert job['status'] == 'completed' and job['recipe']['confirmed'] is False
+    assert client.get('/api/v1/recipes').json() == []
+
+
+def test_resolve_preserves_successes_when_quota_exhausted(client, monkeypatch):
+    ids = []
+    monkeypatch.setattr(app.state.import_worker.queue, 'put_nowait', ids.append)
+    result = client.post('/api/v1/recommendations/resolve', json={
+        'names': ['番茄炒蛋', '鱼香肉丝', '蒸南瓜']})
+    assert result.status_code == 200, result.text
+    items = result.json()['items']
+    assert [item['status'] for item in items] == ['import_pending', 'import_pending', 'failed']
+    assert len(ids) == 2
+    assert client.get('/api/v1/ai/status').json()['daily_used'] == 2
+    retry = client.post('/api/v1/recommendations/resolve', json={
+        'names': ['番茄炒蛋', '鱼香肉丝', '蒸南瓜']}).json()['items']
+    assert [item['status'] for item in retry] == ['import_pending', 'import_pending', 'failed']
+    assert [item['job_id'] for item in retry[:2]] == ids
+    assert client.get('/api/v1/ai/status').json()['daily_used'] == 2
+
+
+def test_resolve_keeps_local_match_when_api_missing(client, monkeypatch):
+    from pydantic import SecretStr
+    assert client.post('/api/v1/recipes', json=saved_recipe('local', '蒸南瓜')).status_code == 201
+    monkeypatch.setattr(app.state.settings, 'deepseek_api_key', SecretStr(''))
+    result = client.post('/api/v1/recommendations/resolve', json={
+        'names': ['蒸南瓜', '番茄炒蛋']})
+    assert result.status_code == 200
+    assert [item['status'] for item in result.json()['items']] == ['matched', 'failed']
+    assert client.get('/api/v1/ai/status').json()['daily_used'] == 0
+
+
+def test_concurrent_resolve_of_normalized_name_only_enqueues_once(client, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    queued = []
+    monkeypatch.setattr(app.state.import_worker.queue, 'put_nowait', queued.append)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        responses = list(executor.map(lambda name: client.post('/api/v1/recommendations/resolve',
+            json={'names': [name]}), ['ABC 菜', 'ＡＢＣ  菜', 'abc 菜']))
+    assert all(response.status_code == 200 for response in responses)
+    ids = {response.json()['items'][0]['job_id'] for response in responses}
+    assert len(ids) == 1 and len(queued) == 1
+    assert client.get('/api/v1/ai/status').json()['daily_used'] == 1

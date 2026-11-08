@@ -43,6 +43,18 @@ npm run dev:h5
 
 需要配置已有 `COOK_DEEPSEEK_API_KEY`，推荐与导入共用现有 API 配额。估时是菜单建议，实际时间以完整步骤和厨房排程为准。接口：`POST /api/v1/recommendations/menu`。截图：[快手模式](docs/meal-menu-quick-preview.png)、[丰盛模式](docs/meal-menu-feast-preview.png)。
 
+## 按食材推荐与菜谱补全
+
+点击“按手头食材推荐菜品”，在菜单页填写已有食材（逗号、顿号或换行分隔），设置人数、菜数、时间与工作量。API 先返回菜名列表，可自行改名、增减；点击“确认菜单，准备菜谱”后只在当前账号菜谱库匹配，缺少的才调用原有 DeepSeek 搜索/结构化导入。
+
+同名多个配方会显示人份和食材摘要供选择；导入完成后点击“审核菜谱并保存”。审核保存返回菜谱页后，重新打开菜单可继续将已确认菜谱加入计划。页面保留菜单、逐道任务与失败项；可只重试失败菜品，重试已有任务会复用缓存。分钟/每日配额仍沿用现有配置，不自动提高。
+
+菜单生成接口可选传 `ingredients` 数组；逐菜匹配接口为 `POST /api/v1/recommendations/resolve`，请求包含 `names`，同名选择另传 `selected_recipe_ids`。计划接口可选传 `meal_preferences`，在时间线显示完整厨房排程与操作/看管人分钟是否超出目标。单道菜均小于十分钟，并不保证共享厨具下整餐小于十分钟。
+
+[局部失败与保留菜单](docs/ingredient-menu-partial-preview.png) · [待审核菜谱](docs/ingredient-menu-review-preview.png) · [整餐目标核验](docs/menu-schedule-assessment-preview.png)
+
+后端回归：`.venv/bin/python -m pytest -q`。前端回归：在 `frontend/uniapp` 运行 `npm test`；构建 `npm run build:h5`、`npm run build:mp-weixin`。本轮没有开发本地模型、微调或爬虫。
+
 ## GitHub 自动构建
 
 `frontend/uniapp` 更新会触发 H5、微信小程序和 App 资源构建；手动运行可通过 HBuilderX runner 生成 Android APK 和 iOS IPA。Flutter 工作流已删除。

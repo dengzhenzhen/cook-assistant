@@ -72,7 +72,11 @@ async function generate() {
     await flushEdits()
     if (pendingEdits().length) throw new Error('本机有未同步的菜谱或厨房修改，请先联网同步或处理冲突。')
     const target = useTarget.value ? new Date(`${date.value}T${time.value}:00`).toISOString() : null
-    const snapshot = await api.plan(chosenRecipes.value.map(r => r.recipe_id), kitchen.value.kitchen_id, target, portionSelection())
+    const recipeIds = chosenRecipes.value.map(r => r.recipe_id)
+    const constraints = storage.get('meal_constraints')
+    const sameMenu = constraints?.recipe_ids?.length === recipeIds.length && recipeIds.every(id => constraints.recipe_ids.includes(id))
+    const preferences = sameMenu ? { mode: constraints.mode, time_minutes: constraints.time_minutes, effort: constraints.effort } : null
+    const snapshot = await api.plan(recipeIds, kitchen.value.kitchen_id, target, portionSelection(), preferences)
     storage.set('latest_plan', snapshot)
     go('timeline')
   } catch (e) { error.value = errorText(e) }

@@ -5,9 +5,12 @@ from sqlalchemy import select
 from ..database import AIUsage, ImportJob, RecipeRow
 from ..deepseek import AIError
 from ..imports import reserve_quotas
-from ..recommendations import MenuRequest, MenuResponse, generate_menu, parse_menu
+from ..recommendations import (MenuRequest, MenuResponse, ResolveItem, ResolveRequest,
+                               ResolveResponse, Candidate, generate_menu, parse_menu,
+                               normalized_name)
 from ..schemas import new_id
 from .catalog import DB, Owner
+from .ai import enqueue
 
 router = APIRouter(prefix='/api/v1')
 
@@ -56,3 +59,53 @@ async def recommend_menu(payload: MenuRequest, request: Request, db: DB, user: O
                                input_tokens=tokens('prompt_tokens'),
                                output_tokens=tokens('completion_tokens')))
         await db.commit()
+
+
+@router.post('/recommendations/resolve', response_model=ResolveResponse,
+             response_model_exclude_none=True)
+async def resolve_menu(payload: ResolveRequest, request: Request, db: DB, user: Owner):
+    rows = (await db.scalars(select(RecipeRow).where(RecipeRow.user_id == user))).all()
+    by_name = {}
+    for row in rows:
+        doc = row.document
+        name = doc.get('name') if isinstance(doc, dict) else None
+        if isinstance(name, str) and name.strip():
+            by_name.setdefault(normalized_name(name), []).append(Candidate(
+                recipe_id=row.id, name=name.strip(), confirmed=doc.get('confirmed', True),
+                servings=doc.get('servings', 2),
+                ingredient_names=[item['name'] for item in doc.get('ingredients', [])[:6]
+                                  if isinstance(item, dict) and isinstance(item.get('name'), str)]))
+    items = []
+    for name in payload.names:
+        key = normalized_name(name)
+        candidates = by_name.get(key, [])
+        selected = payload.selected_recipe_ids.get(key)
+        if selected:
+            choice = next((candidate for candidate in candidates
+                           if candidate.recipe_id == selected), None)
+            if choice is None:
+                items.append(ResolveItem(name=name, status='failed', error='选定菜谱不存在或无权使用。'))
+            else:
+                items.append(ResolveItem(name=name,
+                    status='matched' if choice.confirmed else 'needs_review',
+                    recipe_id=choice.recipe_id))
+            continue
+        if len(candidates) > 1:
+            items.append(ResolveItem(name=name, status='needs_choice', candidates=candidates))
+            continue
+        if candidates:
+            choice = candidates[0]
+            items.append(ResolveItem(name=name,
+                status='matched' if choice.confirmed else 'needs_review',
+                recipe_id=choice.recipe_id))
+            continue
+        try:
+            job = await enqueue(request, db, user, {'source': 'text', 'text': normalized_name(name)})
+            items.append(ResolveItem(name=name, status='import_pending', job_id=job['job_id']))
+        except HTTPException as exc:
+            await db.rollback()
+            items.append(ResolveItem(name=name, status='failed', error=str(exc.detail)))
+        except Exception:
+            await db.rollback()
+            items.append(ResolveItem(name=name, status='failed', error='菜谱导入失败，请稍后重试。'))
+    return ResolveResponse(items=items)

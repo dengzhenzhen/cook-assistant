@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from ..auth import owner
 from ..database import get_db, RecipeRow, KitchenRow
 from ..schemas import Recipe, Kitchen
+from ..scaling import inherit_ingredient_rules
 
 router = APIRouter(prefix='/api/v1/sync', tags=['sync'])
 DB = Annotated[AsyncSession, Depends(get_db)]
@@ -23,11 +24,15 @@ class Edit(BaseModel):
 @router.post('/edit')
 async def edit(payload: Edit, db: DB, user: Owner):
     schema, model, id_field = (Recipe, RecipeRow, 'recipe_id') if payload.kind == 'recipe' else (Kitchen, KitchenRow, 'kitchen_id')
-    try: document = schema.model_validate(payload.document).model_dump()
+    try:
+        parsed = schema.model_validate(payload.document)
+        document = parsed.model_dump()
     except ValueError: raise HTTPException(422, '离线编辑数据无效。')
     key = document[id_field]
     row = await db.scalar(select(model).where(model.id == key).with_for_update())
     if row is not None and row.user_id != user: raise HTTPException(404, '记录不存在。')
+    if row is not None and payload.kind == 'recipe':
+        document = inherit_ingredient_rules(parsed, Recipe.model_validate(row.document)).model_dump()
     # Compare canonical models so new optional defaults do not create false
     # conflicts for pre-upgrade documents or an old pending offline edit.
     def canonical(value):

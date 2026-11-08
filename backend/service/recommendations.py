@@ -1,5 +1,6 @@
 """Name-only menu recommendations from DeepSeek."""
 import json
+import unicodedata
 from typing import Literal
 
 import httpx
@@ -20,6 +21,7 @@ class MenuRequest(BaseModel):
     time_minutes: int | None = Field(default=None, ge=1, le=240)
     effort: Effort | None = None
     exclude_names: list[str] = Field(default_factory=list, max_length=20)
+    ingredients: list[str] = Field(default_factory=list, max_length=30)
 
     @field_validator('exclude_names')
     @classmethod
@@ -27,6 +29,14 @@ class MenuRequest(BaseModel):
         cleaned = [name.strip() for name in names]
         if any(not name or len(name) > 80 for name in cleaned) or sum(map(len, cleaned)) > 800:
             raise ValueError('排除菜名不能为空、超过 80 字，或总计超过 800 字。')
+        return cleaned
+
+    @field_validator('ingredients')
+    @classmethod
+    def valid_ingredients(cls, names):
+        cleaned = [name.strip() for name in names]
+        if any(not name or len(name) > 40 for name in cleaned):
+            raise ValueError('原料名称不能为空或超过 40 字。')
         return cleaned
 
     @model_validator(mode='after')
@@ -60,7 +70,9 @@ SYSTEM = ("你是家常菜点菜助手。只推荐菜名和简短理由，不写
           "严格输出 JSON 对象，格式为 {\"dishes\":[{\"name\":\"菜名\","
           "\"reason\":\"一句推荐理由\",\"estimated_minutes\":整数,"
           "\"effort\":\"low/medium/high\"}]}。不要 Markdown。"
-          "菜名不能重复，也不能包含排除项。时间为整桌预计完成时间的约束，"
+          "菜名不能重复，也不能包含排除项。尽量使用用户已有原料；"
+          "若推荐菜需要缺少的关键原料，在 reason 中明确指出缺少什么。"
+          "时间为整桌预计完成时间的约束，"
           "各菜用时应合理且符合限制。")
 
 
@@ -71,6 +83,7 @@ async def generate_menu(settings, request: MenuRequest, library: list[dict]):
     brief = {'mode': request.mode, 'servings': request.servings,
              'dish_count': request.dish_count, 'time_minutes': request.time_minutes,
              'effort': request.effort, 'exclude_names': request.exclude_names,
+             'ingredients': request.ingredients,
              'saved_recipes': library[:30]}
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(45, connect=15)) as client:
@@ -135,3 +148,49 @@ def parse_menu(content: str, request: MenuRequest, library: list[dict]) -> MenuR
         return MenuResponse(mode=request.mode, dishes=dishes, warnings=[])
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         raise AIError('AI 推荐结果无效，请重试。') from exc
+
+
+def normalized_name(name: str) -> str:
+    """Conservative exact match after Unicode width and whitespace normalization."""
+    return ' '.join(unicodedata.normalize('NFKC', name).split()).casefold()
+
+
+class ResolveRequest(BaseModel):
+    names: list[str] = Field(min_length=1, max_length=6)
+    selected_recipe_ids: dict[str, str] = Field(default_factory=dict, max_length=6)
+
+    @model_validator(mode='after')
+    def valid_names(self):
+        self.names = [name.strip() for name in self.names]
+        keys = [normalized_name(name) for name in self.names]
+        if any(not key or len(name) > 80 for key, name in zip(keys, self.names)) or len(set(keys)) != len(keys):
+            raise ValueError('菜名不能为空、超过 80 字或重复。')
+        selected = {}
+        for name, recipe_id in self.selected_recipe_ids.items():
+            key = normalized_name(name)
+            if key not in keys or key in selected or not recipe_id or len(recipe_id) > 80:
+                raise ValueError('选定菜谱必须对应请求菜名和有效菜谱 ID。')
+            selected[key] = recipe_id
+        self.selected_recipe_ids = selected
+        return self
+
+
+class Candidate(BaseModel):
+    recipe_id: str
+    name: str
+    confirmed: bool
+    servings: int = 2
+    ingredient_names: list[str] = Field(default_factory=list)
+
+
+class ResolveItem(BaseModel):
+    name: str
+    status: Literal['matched', 'needs_choice', 'needs_review', 'import_pending', 'failed']
+    recipe_id: str | None = None
+    job_id: str | None = None
+    candidates: list[Candidate] | None = None
+    error: str | None = None
+
+
+class ResolveResponse(BaseModel):
+    items: list[ResolveItem]

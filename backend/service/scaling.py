@@ -8,6 +8,29 @@ SEASONINGS = {'盐', '食盐', '白糖', '糖', '生抽', '老抽', '酱油', '�
 OILS = {'油', '食用油', '植物油', '花生油', '菜籽油', '橄榄油'}
 
 
+def inherit_ingredient_rules(recipe: Recipe, previous: Recipe):
+    """Old editors may write only name/quantity/unit. Preserve unambiguous rules.
+
+    An explicitly supplied auto rule still resets a prior custom rule. Never
+    guess which duplicate ingredient line corresponds to a previous one.
+    """
+    def key(ingredient):
+        return ingredient.name.strip(), ingredient.amount.unit if ingredient.amount else ingredient.unit
+    old, new_counts = {}, {}
+    for ingredient in previous.ingredients:
+        old.setdefault(key(ingredient), []).append(ingredient)
+    for ingredient in recipe.ingredients:
+        new_counts[key(ingredient)] = new_counts.get(key(ingredient), 0) + 1
+    for ingredient in recipe.ingredients:
+        choices = old.get(key(ingredient), [])
+        if len(choices) != 1 or new_counts[key(ingredient)] != 1: continue
+        if 'scaling' not in ingredient.model_fields_set:
+            ingredient.scaling = choices[0].scaling.model_copy(deep=True)
+        if 'role' not in ingredient.model_fields_set:
+            ingredient.role = choices[0].role
+    return recipe
+
+
 def reference_rule(ingredient):
     rule = ingredient.scaling
     if rule.mode != 'auto': return rule, False

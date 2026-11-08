@@ -123,3 +123,27 @@ def test_upgrade_default_fields_do_not_conflict_with_pre_upgrade_offline_base(cl
     assert result.status_code == 200, result.text
     stale = client.post('/api/v1/sync/edit', json={'kind': 'recipe', 'base': raw, 'document': current | {'name': '不能覆盖'}})
     assert stale.status_code == 409
+
+
+def test_legacy_editors_preserve_custom_rules_but_explicit_auto_resets_them(client):
+    data = portion_recipe().model_dump()
+    data['ingredients'][0]['scaling'] = {'mode': 'power', 'exponent': 0.65}
+    original = client.post('/api/v1/recipes', json=data).json()
+    legacy = deepcopy(original)
+    for ingredient in legacy['ingredients']:
+        ingredient.pop('scaling')
+        ingredient.pop('role')
+        ingredient.pop('amount')
+    legacy['ingredients'][0]['quantity'] = '400'
+    changed = client.put('/api/v1/recipes/test-recipe', json=legacy)
+    assert changed.status_code == 200
+    assert changed.json()['ingredients'][0]['scaling']['exponent'] == 0.65
+    assert changed.json()['ingredients'][0]['amount']['value'] == '400'
+    base = changed.json()
+    legacy['ingredients'][0]['quantity'] = '500'
+    offline = client.post('/api/v1/sync/edit', json={'kind': 'recipe', 'base': base, 'document': legacy})
+    assert offline.status_code == 200, offline.text
+    assert offline.json()['document']['ingredients'][0]['scaling']['exponent'] == 0.65
+    legacy['ingredients'][0]['scaling'] = {'mode': 'auto'}
+    reset = client.put('/api/v1/recipes/test-recipe', json=legacy)
+    assert reset.json()['ingredients'][0]['scaling']['mode'] == 'auto'

@@ -96,6 +96,7 @@ export const api = {
   saveKitchen: (kitchen) => request(`/api/v1/kitchens/${encode(kitchen.kitchen_id)}`, { method: 'PUT', data: kitchen }),
   aiStatus: () => request('/api/v1/ai/status'),
   recommendMenu: (conditions) => request('/api/v1/recommendations/menu', { method: 'POST', data: conditions }),
+  resolveMenu: (menu) => request('/api/v1/recommendations/resolve', { method: 'POST', data: menu }),
   importText: (text) => request('/api/v1/recipes/import/text', { method: 'POST', data: { text } }),
   importJob: (id) => request(`/api/v1/import-jobs/${encode(id)}`),
   async importImage(filePaths) {
@@ -123,7 +124,7 @@ export const api = {
     if (auth.value?.user_id !== previous.user_id) throw new ApiError(401, '账号已切换，请重新打开页面。')
     return decode(response)
   },
-  plan: (recipeIds, kitchenId, targetFinishTime = null, servingsByRecipe = {}) => request('/api/v1/plans/from-recipes', { method: 'POST', data: { recipe_ids: recipeIds, kitchen_id: kitchenId, target_finish_time: targetFinishTime, servings_by_recipe: servingsByRecipe } }),
+  plan: (recipeIds, kitchenId, targetFinishTime = null, servingsByRecipe = {}, mealPreferences = null) => request('/api/v1/plans/from-recipes', { method: 'POST', data: { recipe_ids: recipeIds, kitchen_id: kitchenId, target_finish_time: targetFinishTime, servings_by_recipe: servingsByRecipe, meal_preferences: mealPreferences } }),
   recalculate: (scheduleRequest) => request('/api/v1/plans/recalculate', { method: 'POST', data: scheduleRequest }),
   listSessions: () => request('/api/v1/sessions'),
   getSession: (id) => request(`/api/v1/sessions/${encode(id)}`),

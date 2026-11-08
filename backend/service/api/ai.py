@@ -25,12 +25,17 @@ def job_view(job):
 
 
 async def enqueue(request,db,user,payload):
+    async with request.app.state.import_enqueue_lock:
+        return await _enqueue(request, db, user, payload)
+
+
+async def _enqueue(request,db,user,payload):
     settings=request.app.state.settings
-    if not settings.deepseek_api_key.get_secret_value(): raise HTTPException(503,'尚未配置 DeepSeek API。')
     digest=hashlib.sha256((settings.deepseek_model+json.dumps(payload,sort_keys=True,ensure_ascii=False)).encode()).hexdigest()
     cached=await db.scalar(select(ImportJob).where(ImportJob.user_id==user,ImportJob.digest==digest,
         ImportJob.status.in_(['pending','running','completed'])).order_by(ImportJob.created_at.desc()))
     if cached: return job_view(cached)
+    if not settings.deepseek_api_key.get_secret_value(): raise HTTPException(503,'尚未配置 DeepSeek API。')
     await reserve_quotas(db,user,settings)
     job=ImportJob(id=new_id(),user_id=user,digest=digest,payload=payload,status='pending')
     db.add(job);await db.commit()
@@ -79,4 +84,7 @@ async def import_images(images:list[UploadFile],request:Request,db:DB,user:Owner
 
 @router.get('/import-jobs/{job_id}')
 async def import_job(job_id:str,db:DB,user:Owner):
-    return job_view(await owned(db,ImportJob,job_id,user))
+    job = await owned(db, ImportJob, job_id, user)
+    if job.payload.get('kind') == 'recommendation':
+        raise HTTPException(404, '菜谱导入任务不存在。')
+    return job_view(job)

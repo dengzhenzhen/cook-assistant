@@ -16,6 +16,9 @@ async def lifespan(app):
     engine=make_engine(settings.database_url)
     sessions=async_sessionmaker(engine,expire_on_commit=False)
     app.state.settings=settings;app.state.sessions=sessions
+    # Serialize cache lookup + quota reservation + insert in the single-process
+    # importer, including double-taps and concurrent menu resolution requests.
+    app.state.import_enqueue_lock = asyncio.Lock()
     if settings.development_mode:
         async with engine.begin() as conn: await conn.run_sync(Base.metadata.create_all)
         async with sessions() as db:

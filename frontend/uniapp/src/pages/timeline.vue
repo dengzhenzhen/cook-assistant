@@ -5,6 +5,7 @@ import { storage } from '../lib/storage.js'
 import { createSession } from '../lib/session.js'
 import { uid, formatSeconds, go, toast } from '../utils.js'
 import MealIngredients from '../components/MealIngredients.vue'
+import MenuAssessment from '../components/MenuAssessment.vue'
 
 const snapshot = ref(null)
 const rows = computed(() => (snapshot.value?.plan?.tasks || []).slice().sort((a, b) => a.start_seconds - b.start_seconds))
@@ -34,6 +35,8 @@ async function start() {
     <template v-else>
       <text class="subtitle">共 {{ rows.length }} 步。按时间线执行，设备自动步骤会继续计时。</text>
       <MealIngredients :snapshots="snapshot.recipe_snapshots" />
+      <MenuAssessment :assessment="snapshot.menu_assessment" />
+      <button v-if="snapshot.menu_assessment && (!snapshot.menu_assessment.within_time_target || !snapshot.menu_assessment.within_work_target)" class="secondary" @click="go('discover')">返回菜单调整</button>
       <view v-for="row in rows" :key="row.task_id" class="card">
         <view class="row"><text class="muted">{{ snapshot.recipes?.[templates[row.task_id]?.recipe_id] || '' }}</text></view>
         <text class="step">{{ templates[row.task_id]?.name || row.name }}</text>

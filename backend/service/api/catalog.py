@@ -8,7 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from cook_scheduler import Request, generate_plan, SchedulingError
 from ..database import get_db, RecipeRow, KitchenRow
 from ..schemas import Recipe, Kitchen, SavedPlanRequest, ScaleRequest
-from ..scaling import scale_recipe
+from ..scaling import scale_recipe, inherit_ingredient_rules
+from ..menu_assessment import assess_menu
 
 router=APIRouter(prefix='/api/v1')
 DB=Annotated[AsyncSession,Depends(get_db)]
@@ -57,6 +58,7 @@ async def get_recipe(recipe_id:str,db:DB,user:Owner):
 async def update_recipe(recipe_id:str,recipe:Recipe,db:DB,user:Owner):
     if recipe_id!=recipe.recipe_id: raise HTTPException(422,'菜谱 ID 不一致。')
     row=await owned(db,RecipeRow,recipe_id,user)
+    recipe = inherit_ingredient_rules(recipe, Recipe.model_validate(row.document))
     row.document=recipe.model_dump();row.updated_at=datetime.now(timezone.utc)
     await db.commit();return recipe
 
@@ -109,4 +111,5 @@ async def from_recipes(payload:SavedPlanRequest,db:DB,user:Owner):
     except SchedulingError as exc: raise HTTPException(409,str(exc)) from exc
     return {'origin':now.isoformat(),'request':request.model_dump(),'plan':plan.model_dump(),
             'recipes':{r.recipe_id:r.name for r in recipes},
-            'recipe_snapshots': {r.recipe_id: scale_recipe(r, payload.servings_by_recipe.get(r.recipe_id, r.servings)) for r in recipes}}
+            'recipe_snapshots': {r.recipe_id: scale_recipe(r, payload.servings_by_recipe.get(r.recipe_id, r.servings)) for r in recipes},
+            'menu_assessment': assess_menu(payload.meal_preferences, recipes, plan, payload.servings_by_recipe)}

@@ -6,6 +6,7 @@ import { storage } from '../lib/storage.js'
 import { createSession, tick, startTask, startNext, completeTask, readyToStart, elapsed, finished, needsWatching, buildReplan, applyReplan, automatic } from '../lib/session.js'
 import { uid, errorText, formatSeconds, go, tab, toast } from '../utils.js'
 import MealIngredients from '../components/MealIngredients.vue'
+import MenuAssessment from '../components/MenuAssessment.vue'
 
 const record = ref(null)
 const now = ref(Date.now())
@@ -172,6 +173,7 @@ function recipeName(task) { return session.value?.snapshot?.recipes?.[task.recip
     <template v-else>
       <text class="subtitle">已完成 {{ completed }} / {{ tasks.length }} 步 · {{ session.paused ? '已暂停' : session.resting ? '正在休息' : '按计划进行' }}</text>
       <MealIngredients :snapshots="session.snapshot.recipe_snapshots" />
+      <MenuAssessment :assessment="session.snapshot.menu_assessment" />
       <text v-if="needsWatching(session)" class="error">明火或手动步骤正在进行，请留意锅灶。</text>
       <view v-if="conflict" class="card"><text class="error">{{ message }}</text><button class="secondary" @click="resolveConflict('cloud')">恢复云端进度</button><button class="secondary" @click="resolveConflict('separate')">保留本机为独立会话</button></view>
       <text v-else-if="message" class="muted">{{ message }}</text>
