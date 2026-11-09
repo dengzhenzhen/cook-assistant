@@ -65,3 +65,11 @@ Chromium 对最终构建跑通“食材输入 → 菜单改名 → 库内复用/
 所有云端接口验证均使用模拟响应，未调用真实付费 API；没有修改服务端密钥或用户实际菜谱数据库。工作区预先存在的 `.gitignore`、`.vscode`、`backend/service/__main__.py`、`starttunnel.sh` 等改动不纳入功能提交。
 
 角色分工：explorer（gpt-6-luna / low）只读勘察；architect（gpt-6-astra / high）做兼容与流程设计；两个 implementer（gpt-6-sol / medium）分别负责推荐后端和推荐页面，主代理负责分量换算、集成、验收与 push。
+
+## 真机反馈修复：editor.wxml 属性换行
+
+用户反馈 `pages/editor.wxml: 2:0:unexpected character '\n'`。原因是分段曲线示例使用 `&#10;`，uni-app 编译时将其解码为 placeholder 属性内的真实换行；原产物因此有3行。此前 uni 构建通过不代表微信的 WXML 解析已通过。
+
+已将示例放入脚本 ref 并动态绑定 placeholder，修复后产物为单行且 placeholder 为 `{{...}}`。新增 WXML 属性换行回归检查：先对旧产物运行，能准确报出 editor.wxml 的 placeholder；修复后全量产物检查通过。`npm run build:mp-weixin` 自动执行该检查，CI 删除重复调用。
+
+验证：前端测试通过，小程序构建及产物检查通过，H5 构建通过。当前环境没有 Windows 微信开发者工具，未宣称完成用户同版本的真机复测；拉取代码后重新构建并清缓存编译。

@@ -12,6 +12,7 @@ const draft = ref(null)
 const base = ref(null)
 const error = ref('')
 const saving = ref(false)
+const curvePlaceholder = ref('0.5 | 0.7\n1 | 1\n2 | 1.6')
 
 onLoad(async options => {
   const id = options.id
@@ -107,7 +108,7 @@ async function save() {
       <view class="row"><picker :range="ingredientRoles.map(option => option[1])" @change="chooseRole(ingredient, $event)"><text class="chip">{{ roleLabel(ingredient) }} ›</text></picker><picker :range="scalingModes.map(option => option[1])" @change="chooseRule(ingredient, $event)"><text class="chip">{{ ruleLabel(ingredient) }} ›</text></picker></view>
       <label v-if="ingredient.scaling.mode === 'power'" class="field">指数（1 为按比例；小于 1 表示增量较缓）<input v-model="ingredient.scaling.exponent" class="input" type="digit" /></label>
       <label v-if="ingredient.scaling.mode === 'affine'" class="field">固定占比（0–1，剩余部分按比例）<input v-model="ingredient.scaling.fixed_fraction" class="input" type="digit" /></label>
-      <label v-if="ingredient.scaling.mode === 'piecewise'" class="field">分段节点：份数倍率 | 用量倍率<textarea v-model="ingredient.curveText" class="textarea" placeholder="0.5 | 0.7&#10;1 | 1&#10;2 | 1.6" /></label>
+      <label v-if="ingredient.scaling.mode === 'piecewise'" class="field">分段节点：份数倍率 | 用量倍率<textarea v-model="ingredient.curveText" class="textarea" :placeholder="curvePlaceholder" /></label>
       <label class="field">配方依据 / 提醒<input v-model="ingredient.scaling.note" class="input" maxlength="300" placeholder="例如：锅底油不随人数完全增加" /></label>
     </view>
     <button class="secondary" @click="addIngredient">＋ 增加食材</button>
